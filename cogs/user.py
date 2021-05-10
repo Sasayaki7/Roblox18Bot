@@ -16,29 +16,25 @@ removeEmoji = '🛡️'
 cancelEmoji = '❌'
 goodEmoji = '✅'
 
-typeDict = {1: 'Image', 2: 'T-Shirt', 8:'Hat',
-    11: 'Shirt', 12:'Pants', 17: 'Head', 18: 'Face', 19: 'Gear', 24: 'Animation',
-    27: 'Torso', 28: 'RightArm', 29: 'Left Arm', 30: 'Left Leg', 31: 'Right Leg', 32: 'Package',
-    41: 'Hair', 42: 'Accessory', 43: 'Accessory', 44: 'Accessory', 45:'Accessory', 46: 'Accessory', 47:'Accessory',
-    48:'Animation', 49:'Animation', 50:'Animation', 51:'Animation', 52:'Animation', 53:'Animation', 54:'Animation', 55:'Animation',
-    56:'Animation', 61:'Animation'}
 
-class User(commands.Cog):
 
-    def __init__(self, bot):
-        self.bot = bot
-        self.data_handler = ROBLOXProfileHandler()
+
+class ROBLOXAPIAccess():
+
+
+
+    typeDict = {1: 'Image', 2: 'T-Shirt', 8:'Hat',
+        11: 'Shirt', 12:'Pants', 17: 'Head', 18: 'Face', 19: 'Gear', 24: 'Animation',
+        27: 'Torso', 28: 'RightArm', 29: 'Left Arm', 30: 'Left Leg', 31: 'Right Leg', 32: 'Package',
+        41: 'Hair', 42: 'Accessory', 43: 'Accessory', 44: 'Accessory', 45:'Accessory', 46: 'Accessory', 47:'Accessory',
+        48:'Animation', 49:'Animation', 50:'Animation', 51:'Animation', 52:'Animation', 53:'Animation', 54:'Animation', 55:'Animation',
+        56:'Animation', 61:'Animation'}
+
+
+
+    def __init__(self):
         self.session = aiohttp.ClientSession()
         self.item_cache={}
-        self.bot.loop.create_task(self.loadCache())
-        self.saveCache.start()
-
-
-
-    def cog_unload(self):
-        self.saveCache.cancel()
-        with open('cache.json', "w") as f:
-            json.dump(self.item_cache,f)
 
 
     async def loadCache(self):
@@ -46,28 +42,24 @@ class User(commands.Cog):
             self.item_cache=json.load(f)
 
 
-    @tasks.loop(seconds=20.0)
-    async def saveCache(self):
+
+
+    def saveCache(self):
         with open('cache.json', "w") as f:
             json.dump(self.item_cache,f)
 
-    async def update_user(self, id, profile):  #updates the user for set discord account
-        await self.data_handler.update_entry(id, profile)
 
 
 
 
-    async def ruser_exists(self, id): #checks if link database already contains the given message. returns a boolean
-        return await self.data_handler.entry_exists(userId=id)
-
-
-
-    async def get_ruser(self, id):
-        if (await self.ruser_exists(id)):
-            record= await self.data_handler.get_entry(id)
-            return record['profileid']
+    #Gets the asset type of roblox given the AssetTypeId of the item.
+    def getAssetType(self, type):
+        if type in self.typeDict:
+            return self.typeDict[type]
         else:
             return None
+
+
 
     #function that takes the username and returns the corresponding userid. is a coroutine.
     async def fetch_roblox_id_from_username(self, username):
@@ -80,6 +72,9 @@ class User(commands.Cog):
             #0 is not a valid id, so if this is returned we know something is wrong.
             else:
                 return 0
+
+
+
 
     #function that obtains the roblox id of the player described in the command. returns id (int)
     #Input can be the username, the roblox profile link itself, or the roblox id.
@@ -98,6 +93,9 @@ class User(commands.Cog):
         else:
             return await self.fetch_roblox_id_from_username(text)
 
+
+
+    #API Call that retrieves the username from the roblox ID
     async def fetch_username_from_roblox_id(self, userid):
         async with self.session.get(f'https://users.roblox.com/v1/users/{userid}') as resp:
             if resp.status == 200:
@@ -107,6 +105,9 @@ class User(commands.Cog):
                 return 0
 
 
+
+
+    #API Call that retrieves the avatar of a roblox user given their ROBLOX ID.
     async def fetch_avatar_image(self, userId):
         async with self.session.get(f'https://thumbnails.roblox.com/v1/users/avatar?userIds={userId}&size=720x720&format=Png&isCircular=false') as resp:
             if resp.status==200:
@@ -137,11 +138,7 @@ class User(commands.Cog):
                     return None
 
 
-    def getAssetType(self, type):
-        if type in typeDict:
-            return typeDict[type]
-        else:
-            return None
+
 
 
 
@@ -157,13 +154,17 @@ class User(commands.Cog):
         for index, item in enumerate(jsonList["assetIds"]):
             for i in range(3):
                 response = await self.fetch_item_info(item)
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.5)
                 if response:
                     assetDescription = self.getAssetType(response["AssetTypeId"])
                     if not (assetDescription == 'Animation' or assetDescription == None):
                         listOfItems.append(f'{assetDescription}: [{response["Name"]}](http://www.roblox.com/catalog/{item})')
                     break
         return listOfItems
+
+
+
+
 
     async def fetch_item_rap(self, productAssetId):
         async with self.session.get(f'https://economy.roblox.com/v1/assets/{productAssetId}/resale-data') as resp:
@@ -190,7 +191,7 @@ class User(commands.Cog):
             obtained=False
             for i in range(3):
                 response = await self.fetch_item_rap(item)
-                await asyncio.sleep(0.15)
+                await asyncio.sleep(0.3)
                 if response == 'notlimited':
                     break
                 elif response:
@@ -198,7 +199,7 @@ class User(commands.Cog):
                     total_rap += response["recentAveragePrice"]
                     for j in range(3):
                         resp2 = await self.fetch_item_info(item)
-                        await asyncio.sleep(0.15)
+                        await asyncio.sleep(0.3)
                         if resp2:
                             listOfLimiteds.append(f'[{resp2["Name"]}](http://www.roblox.com/catalog/{item}): R${response["recentAveragePrice"]}')
                             break
@@ -211,31 +212,71 @@ class User(commands.Cog):
 
     async def fetch_rap_from_player(self, userId, cursor=None, prevRap=0):
         if cursor == None:
-            async with self.session.get(f'https://inventory.roblox.com/v1/users/{userId}/assets/collectibles?sortOrder=Asc&limit=100') as resp:
-                rap = prevRap
-                if resp.status == 200:
-                    jsonData = await resp.json()
-                    for items in jsonData["data"]:
-                        rap=rap+items["recentAveragePrice"]
-                    if jsonData["nextPageCursor"]:
-                        return await self.fetch_rap_from_player(userId, cursor=jsonData["nextPageCursor"], prevRap=rap)
-                    else:
-                        return rap
-                elif resp.status == 403:
-                    return -1
-                elif resp.status == 400:
-                    return -2
-
+            url = f'https://inventory.roblox.com/v1/users/{userId}/assets/collectibles?sortOrder=Asc&limit=100'
         else:
-            async with self.session.get(f'https://inventory.roblox.com/v1/users/{userId}/assets/collectibles?sortOrder=Asc&limit=100&cursor={cursor}') as resp:
-                if resp.status == 200:
-                    jsonData = await resp.json()
-                    for items in jsonData["data"]:
-                         rap=rap+items["recentAveragePrice"]
-                    if jsonData["nextPageCursor"]:
-                        return await self.fetch_rap_from_player(userId, cursor=jsonData["nextPageCursor"], prevRap=rap)
-                    else:
-                        return rap
+            url= f'https://inventory.roblox.com/v1/users/{userId}/assets/collectibles?sortOrder=Asc&limit=100&cursor={cursor}'
+        async with self.session.get(url) as resp:
+            rap = prevRap
+            if resp.status == 200:
+                jsonData = await resp.json()
+                for items in jsonData["data"]:
+                    rap=rap+items["recentAveragePrice"]
+                if jsonData["nextPageCursor"]:
+                    return await self.fetch_rap_from_player(userId, cursor=jsonData["nextPageCursor"], prevRap=rap)
+                else:
+                    return rap
+            elif resp.status == 403:
+                return -1
+            elif resp.status == 400:
+                return -2
+
+
+
+
+
+class User(commands.Cog):
+
+    def __init__(self, bot):
+        self.bot = bot
+        self.data_handler = ROBLOXProfileHandler()
+        self.rbxapi = ROBLOXAPIAccess()
+        self.bot.loop.create_task(self.rbxapi.loadCache())
+        self.saveCache.start()
+
+
+
+    def cog_unload(self):
+        self.saveCache.cancel()
+        self.rbxapi.saveCache()
+
+
+
+
+    @tasks.loop(seconds=20.0)
+    async def saveCache(self):
+        self.rbxapi.saveCache()
+
+
+
+
+    async def update_user(self, id, profile):  #updates the user for set discord account
+        await self.data_handler.update_entry(id, profile)
+
+
+
+    async def ruser_exists(self, id): #checks if link database already contains the given message. returns a boolean
+        return await self.data_handler.entry_exists(userId=id)
+
+
+
+    async def get_ruser(self, id):
+        if (await self.ruser_exists(id)):
+            record= await self.data_handler.get_entry(id)
+            return record['profileid']
+        else:
+            return None
+
+
 
 
 
@@ -266,15 +307,15 @@ class User(commands.Cog):
 
 
     async def embedify(self, robloxid, outfit):
-        embed = discord.Embed(title=f"{await self.fetch_username_from_roblox_id(robloxid)}'s ROBLOX outfit")
-        embed.set_thumbnail(url=await self.fetch_avatar_image(robloxid))
+        embed = discord.Embed(title=f"{await self.rbxapi.fetch_username_from_roblox_id(robloxid)}'s ROBLOX outfit")
+        embed.set_thumbnail(url=await self.rbxapi.fetch_avatar_image(robloxid))
         embed.description = '\n'.join(outfit)
         return embed
 
 
     async def rapembedify(self, robloxid, outfit, total):
-        embed = discord.Embed(title=f"{await self.fetch_username_from_roblox_id(robloxid)}'s avatar limiteds")
-        embed.set_thumbnail(url=await self.fetch_avatar_image(robloxid))
+        embed = discord.Embed(title=f"{await self.rbxapi.fetch_username_from_roblox_id(robloxid)}'s avatar limiteds")
+        embed.set_thumbnail(url=await self.rbxapi.fetch_avatar_image(robloxid))
         embed.description = '\n'.join(outfit)
         embed.add_field(name="Total", value=f'R${total}')
         return embed
@@ -287,6 +328,8 @@ class User(commands.Cog):
             return ctx.message.mentions[0]
         else:
             return self.match_member_tag(ctx.guild, tag)
+
+
 
     async def getAndRegisterUser(self, ctx):
         confirm = False
@@ -328,6 +371,10 @@ class User(commands.Cog):
 
 
 
+
+
+
+
     #coroutine that checks that the arguments of the command.
     async def check_valid_inputs(self, ctx, *args):
         if not args[0]:
@@ -339,7 +386,7 @@ class User(commands.Cog):
                 return None, None
         else:
             if args[0][len(args[0])-1] == '-r':
-                robloxid = await self.fetch_roblox_id_from_username(' '.join(args[0])[:-2])
+                robloxid = await self.rbxapi.fetch_roblox_id_from_username(' '.join(args[0])[:-2])
                 return int(robloxid), None
             if self.identifyUser(ctx, ' '.join(args[0])):
                 discid = self.identifyUser(ctx, ' '.join(args[0])).id
@@ -350,7 +397,7 @@ class User(commands.Cog):
                     await ctx.send(f"``{ctx.guild.get_member(discid).name}`` has not yet registered a ROBLOX account. Have them by typing ``{ctx.prefix}register``")
                     return None, None
             else:
-                await ctx.send(f"Couldn't identify ``{' '.join(args[0])}``. Try mentioning them or use their Name#Discriminator (i.e. Sasa#7557)")
+                await ctx.send(f"Couldn't identify ``{' '.join(args[0])}``. Try mentioning them or use their Name#Discriminator (i.e. Sasa#7557). If this is their ROBLOX username add ``-r`` at the end (i.e. builderman -r)")
                 return None, None
 
 
@@ -365,11 +412,11 @@ class User(commands.Cog):
         if not robloxid:
             return
         async with ctx.typing():
-            outfit=await self.fetch_avatar_clothes(robloxid)
+            outfit=await self.rbxapi.fetch_avatar_clothes(robloxid)
             if outfit == None:
                 counter = 0
                 while counter < 5 and (outfit == None):
-                    outfit=await self.fetch_avatar_clothes(robloxid)
+                    outfit=await self.rbxapi.fetch_avatar_clothes(robloxid)
             if outfit == 0 or outfit == None:
                 await ctx.send("Something went wrong... Maybe ROBLOX is down or user is invalid")
             else:
@@ -385,11 +432,11 @@ class User(commands.Cog):
         if not robloxid:
             return
         async with ctx.typing():
-            outfit, total_rap=await self.fetch_avatar_rap(robloxid)
+            outfit, total_rap=await self.rbxapi.fetch_avatar_rap(robloxid)
             if outfit == None:
                 counter = 0
                 while counter < 5 and (outfit == None):
-                    outfit, total_rap=await self.fetch_avatar_rap(robloxid)
+                    outfit, total_rap=await self.rbxapi.fetch_avatar_rap(robloxid)
             if outfit == 0 or outfit == None:
                 await ctx.send("Something went wrong... Maybe ROBLOX is down or user is invalid")
             else:
@@ -418,13 +465,13 @@ class User(commands.Cog):
         robloxid, discid = await self.check_valid_inputs(ctx, args)
         if not robloxid:
             return
-        rap = await self.fetch_rap_from_player(robloxid)
+        rap = await self.rbxapi.fetch_rap_from_player(robloxid)
         if rap == -1:
             rap = "Unknown (User hid inventory)"
         elif rap == -2:
             rap = "Unknown (Error fetching data. Perhaps server is down or TimeoutError, or invalid user)"
         if discid == None:
-            await ctx.send(f"{await self.fetch_username_from_roblox_id(robloxid)}'s total RAP: {rap}")
+            await ctx.send(f"{await self.rbxapi.fetch_username_from_roblox_id(robloxid)}'s total RAP: {rap}")
         else:
             await ctx.send(f"{ctx.guild.get_member(discid).name}'s total RAP: {rap}")
 
@@ -438,11 +485,11 @@ class User(commands.Cog):
         robloxid, discid = await self.check_valid_inputs(ctx, args)
         if not robloxid:
             return
-        avatarImage=await self.fetch_avatar_image(robloxid)
+        avatarImage=await self.rbxapi.fetch_avatar_image(robloxid)
         if avatarImage == None or avatarImage == "None":
             counter = 0
             while counter < 5 and (avatarImage == "None" or avatarImage == None):
-                avatarImage=await self.fetch_avatar_image(robloxid)
+                avatarImage=await self.rbxapi.fetch_avatar_image(robloxid)
         if avatarImage == 0 or avatarImage == None or avatarImage == "None":
             await ctx.send("Something went wrong... Maybe ROBLOX is down or user is invalid")
         else:

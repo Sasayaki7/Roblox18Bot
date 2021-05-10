@@ -11,6 +11,7 @@ class DataHandler:
         self.parameters = parameters or {}
         self.debounce = False
         self.database_name = database_name or "r18botdb"
+        self.database_link = f'{open("configurations/database.txt").read().strip()}/{self.database_name}'
 
 
 
