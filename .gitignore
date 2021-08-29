@@ -1,3 +1,4 @@
 token.txt
-__pycache__
+**/__pycache__
 database.txt
+countdown.py
