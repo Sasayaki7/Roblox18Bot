@@ -166,6 +166,14 @@ class ROBLOXProfileHandler(DataHandler):
         WHERE id=$1;''',  userId, newProfile)
         await connection.close()
 
+
+    async def get_entry_from_roblox_pf(self, robloxid):
+        connection = await self._get_connection()
+        results = await connection.fetchrow('''SELECT * FROM robloxprofiles WHERE profileid=$1;''', robloxid)
+        await connection.close()
+        return results
+
+
     async def get_entry(self, id):
         return await super().get_entry("robloxprofiles", id)
 

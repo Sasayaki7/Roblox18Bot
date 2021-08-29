@@ -68,7 +68,10 @@ class ROBLOXAPIAccess():
             #We make sure that the response we get back is valid
             if resp.status == 200:
                 json = await resp.json()
-                return json["Id"]
+                if "Id" in json:
+                    return json["Id"]
+                else:
+                    return None
             #0 is not a valid id, so if this is returned we know something is wrong.
             else:
                 return 0
@@ -277,7 +280,12 @@ class User(commands.Cog):
             return None
 
 
-
+    async def get_discuser_from_robloxprof(self, rid):
+        record = await self.data_handler.get_entry_from_roblox_pf(rid)
+        if record:
+            return record['id']
+        else:
+            return None
 
 
     def get_roblox_embed(self, id):
@@ -287,6 +295,7 @@ class User(commands.Cog):
     def getOneLineEmbed(self, embedTitle, embedText):
         embed=discord.Embed(title=embedTitle, description=embedText, color=0xff0000)
         return embed
+
 
     async def set_ruser(self, userid, ruser):
         await self.data_handler.add_entry(userid, ruser)
@@ -321,6 +330,13 @@ class User(commands.Cog):
         return embed
 
 
+    async def user_embed(self, member, robloxpfp):
+        embed = discord.Embed(title=member.name)
+        embed.set_author(name=member.name, icon_url=member.avatar_url)
+        embed.set_image(url=robloxpfp)
+        return embed
+
+
     def identifyUser(self, ctx, tag):
         if tag.isdigit() and ctx.guild.get_member(int(tag)):
             return ctx.guild.get_member(int(tag))
@@ -342,16 +358,16 @@ class User(commands.Cog):
                 await rAcc.delete()
                 await newmsg.delete()
                 break
-            profileid = await self.get_robloxid_from_text(rAcc.content)
+            profileid = await self.rbxapi.get_robloxid_from_text(rAcc.content)
             await newmsg.delete()
             if profileid:
-                reply_msg=await ctx.send(f'{ctx.author.mention}, is {self.get_roblox_embed(profileid)} your ROBLOX profile?  React {goodEmoji} if yes, {cancelEmoji} if no.')
+                reply_msg=await ctx.send(f'{ctx.author.mention}, is {self.get_roblox_embed(profileid)} your ROBLOX profile?  React {goodEmoji} if yes, {cancelEmoji} if no. (Time limit: 30s)')
                 await reply_msg.add_reaction(goodEmoji)
                 await reply_msg.add_reaction(cancelEmoji)
                 def checkr2(r, u):
                     return r.message.id == reply_msg.id and u == ctx.author and (str(r.emoji)==goodEmoji or str(r.emoji) == cancelEmoji)
                 try:
-                    reaction2, user = await ctx.bot.wait_for('reaction_add', check=checkr2, timeout = 15)
+                    reaction2, user = await ctx.bot.wait_for('reaction_add', check=checkr2, timeout = 30)
                 except asyncio.TimeoutError:
                     await reply_msg.delete()
                 if str(reaction2.emoji) == goodEmoji:
@@ -402,10 +418,34 @@ class User(commands.Cog):
 
 
 
+    @commands.command(help="""[JP]:discuser [ROBLOXユーザー] でDiscordユーザーを探します。 [EN]:discuser <robloxprofile> obtains the discord profile of the user given""")
+    async def discuser(self, ctx, *, args):
+
+        profileid = await self.rbxapi.get_robloxid_from_text(args)
+        if not profileid:
+            await ctx.send(f"Could not identify ROBLOX account: {args}")
+            return
+
+        discordid = await self.get_discuser_from_robloxprof(profileid)
+        if not discordid:
+            await ctx.send(f"Could not identify discord user associated with ROBLOX account: ``{args}``. Perhaps they aren't registered")
+            return
+
+        avatarImage=await self.rbxapi.fetch_avatar_image(profileid)
+        if avatarImage == None or avatarImage == "None":
+            counter = 0
+            while counter < 5 and (avatarImage == "None" or avatarImage == None):
+                avatarImage=await self.rbxapi.fetch_avatar_image(profileid)
+
+        try:
+            user= await ctx.guild.fetch_member(discordid)
+        except discord.HTTPException:
+            await ctx.send(f'ROBLOX Profile ``{args}`` belongs to <@!{discordid}>')
+        else:
+            await ctx.send(f'ROBLOX Profile ``{args}`` belongs to {user.name}', embed=await self.user_embed(user, avatarImage))
 
 
-    @commands.command(help="""[JP]:outfit [Discordユーザー] でROBLOXユーザーの衣装を引っ張ってきます。!
-        [EN]:outfit <discorduser> obtains the items that the ROBLOX user is currently wearing.
+    @commands.command(help="""[JP]:outfit [Discordユーザー] でROBLOXユーザーの衣装を引っ張ってきます。[EN]:outfit <discorduser> obtains the items that the ROBLOX user is currently wearing.
         """)
     async def outfit(self, ctx, *args):
         robloxid, discid = await self.check_valid_inputs(ctx, args)

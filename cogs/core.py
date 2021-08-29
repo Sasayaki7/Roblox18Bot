@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 
 
-mapping = ["cogs.user", "cogs.basic", "cogs.starboard"]
+mapping = ["cogs.user", "cogs.basic"]
 class Core(commands.Cog):
 
     def __init__(self, bot):
